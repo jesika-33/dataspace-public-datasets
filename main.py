@@ -42,9 +42,11 @@ async def analyze_relationship(
     file2: UploadFile = File(...)
 ):
     """
-    Join two CSV datasets using proxy table:
-    - hospital file uses column 'drugName'
-    - pharmacy file uses column 'CONTAINS'
+    Because of the different standards in pharmaceutical company's and hospital's way of documentation, This service is used to join two CSV datasets using proxy table:
+    - file 1: hospital file uses column 'drugName'
+    - file 2: pharmacy file uses column 'NAME' 
+
+    Note: In this sample service, proxy table is already defined (cannot be changed) key-value pair 
     """
 
     try:
@@ -70,13 +72,13 @@ async def analyze_relationship(
         # 4. Validate required columns
         if "drugName" not in reader1[0]:
             raise HTTPException(status_code=400, detail="file1 must contain column 'drugName'")
-        if "CONTAINS" not in reader2[0]:
-            raise HTTPException(status_code=400, detail="file2 must contain column 'CONTAINS'")
+        if "NAME" not in reader2[0]:
+            raise HTTPException(status_code=400, detail="file2 must contain column 'NAME'")
 
-        # 5. Build index for pharmacy file (file2) using CONTAINS
+        # 5. Build index for pharmacy file (file2) using NAME
         file2_index = {}
         for row in reader2:
-            key = row.get("CONTAINS")
+            key = row.get("NAME")
             if key:
                 file2_index.setdefault(key, []).append(row)
 
@@ -87,20 +89,20 @@ async def analyze_relationship(
             drug_name = row1.get("drugName")
             if not drug_name:
                 continue
-    
+
             for proxy_key, proxy_value in mapping.items():
                 if proxy_key in drug_name:  # substring match
-    
+
                     for key2, rows in file2_index.items():
                         if proxy_value in key2:  # substring match
-    
+
                             for row2 in rows:
                                 matches.append({
                                     "hospital": row1,
                                     "pharmacy": row2,
                                     "matched_on": f"{proxy_key} -> {proxy_value}"
                                 })
-                            
+
         # 7. Return result
         return JSONResponse(content={
             "status": "success",
