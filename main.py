@@ -104,35 +104,59 @@ async def analyze(drugName: Optional[str] = None):
 
         con = duckdb.connect()
 
-        # Base query (NO LIMIT here)
-        base_query = f"""
-        SELECT
-            h.*,
-            ph.*
-        FROM read_csv_auto('{hospital_path}') h
-        JOIN read_csv_auto('{proxy_path}') p
-            ON lower(h.drugName) LIKE '%' || lower(p."Hospital") || '%'
-        JOIN read_csv_auto(
-            '{pharma_path}',
-            delim=',',
-            quote='"',
-            escape='"',
-            header=True,
-            ignore_errors=True,
-            null_padding=True,
-            sample_size=-1,
-            parallel=false,
-            strict_mode=false
-        ) ph
-            ON lower(ph.NAME) LIKE '%' || lower(p."Pharma_company (MID)") || '%'
-        """
-
+        query = ""
         # Build final query safely
         if drugName:
-            query = base_query + "\nWHERE lower(h.drugName) LIKE ?\nLIMIT 100"
-            params = [f"%{drugName.lower()}%"]
+            query = f"""
+            SELECT
+                h.*,
+                ph.*
+            FROM read_csv_auto('{hospital_path}') h
+            JOIN read_csv_auto('{proxy_path}') p
+                ON lower(h.drugName) LIKE '%' || lower(p."Hospital") || '%'
+            JOIN read_csv_auto(
+                '{pharma_path}',
+                delim=',',
+                quote='"',
+                escape='"',
+                header=True,
+                ignore_errors=True,
+                null_padding=True,
+                sample_size=-1,
+                parallel=false,
+                strict_mode=false
+            ) ph
+                ON lower(ph.NAME) LIKE '%' || lower(p."Pharma_company (MID)") || '%'
+            WHERE lower(h.drugName) LIKE '%' || ? || '%'
+            LIMIT 100
+            """
+            params = [drugName.lower()]
         else:
-            query = base_query + "\nLIMIT 10"
+            query = f"""
+            SELECT
+                p."Hospital" AS hospital_proxy,
+                p."Pharma_company (MID)" AS pharma_proxy,
+                COUNT(*) AS match_count
+            FROM read_csv_auto('{hospital_path}') h
+            JOIN read_csv_auto('{proxy_path}') p
+                ON lower(h.drugName) LIKE '%' || lower(p."Hospital") || '%'
+            JOIN read_csv_auto(
+                '{pharma_path}',
+                delim=',',
+                quote='"',
+                escape='"',
+                header=True,
+                ignore_errors=True,
+                null_padding=True,
+                sample_size=-1,
+                parallel=false,
+                strict_mode=false
+            ) ph
+                ON lower(ph.NAME) LIKE '%' || lower(p."Pharma_company (MID)") || '%'
+            GROUP BY 1, 2
+            ORDER BY match_count DESC
+            LIMIT 50
+            """
             params = []
 
         logger.info(f"FINAL QUERY:\n{query}")
