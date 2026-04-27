@@ -172,6 +172,8 @@ async def analyze():
         logger.info(f"Final matches found: {len(result)}")
         logger.info(f"Match sample:\n{result.head(10)}")
 
+        result = result.where(result.notna(), None)
+
         return JSONResponse(content={
             "status": "success",
             "rows": result.to_dict(orient="records"),
