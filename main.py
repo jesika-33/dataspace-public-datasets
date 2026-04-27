@@ -104,7 +104,7 @@ async def analyze(drugName: Optional[str] = None):
             null_padding=True,
             sample_size=-1,
             parallel=false,
-            strict=false
+            strict_mode=false
         ) ph
             ON lower(ph.NAME) LIKE '%' || lower(p."Pharma_company (MID)") || '%'
         LIMIT 100
