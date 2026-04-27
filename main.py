@@ -61,7 +61,24 @@ async def download_file(url: str, max_retries: int = 3) -> str:
                 raise
 
     return filepath
+# ---------------------------
+# SIMPLE CACHE LAYER
+# ---------------------------
+FILE_CACHE = {}
 
+async def get_file(url: str) -> str:
+    filename = url.split("/")[-1]
+    path = f"/tmp/{filename}"
+
+    # ✅ If already downloaded, reuse it
+    if url in FILE_CACHE and os.path.exists(FILE_CACHE[url]):
+        logger.info(f"Using cached file: {path}")
+        return FILE_CACHE[url]
+
+    # ✅ Otherwise download
+    path = await download_file(url)
+    FILE_CACHE[url] = path
+    return path
 
 # ---------------------------
 # HEALTH
@@ -80,9 +97,9 @@ async def analyze(drugName: Optional[str] = None):
         logger.info(f"==== NEW ANALYSIS (DuckDB) with drugName={drugName} ====")
 
         # Download files
-        hospital_path = await download_file(HOSPITAL_URL)
-        pharma_path = await download_file(PHARMA_URL)
-        proxy_path = await download_file(PROXY_TABLE_URL)
+        hospital_path = await get_file(HOSPITAL_URL)
+        pharma_path = await get_file(PHARMA_URL)
+        proxy_path = await get_file(PROXY_TABLE_URL)
 
         con = duckdb.connect()
 
